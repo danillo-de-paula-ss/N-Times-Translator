@@ -10,3 +10,4 @@ You can find a list of available languages/codes here:
 ```
 - Write the destiny language code and press enter.
 - And finally, write the amount and press enter.
+Wait a few minutes, the program will save the translation in a file called "result.txt" in the same directory as the program.
