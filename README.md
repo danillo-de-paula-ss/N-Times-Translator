@@ -1,7 +1,7 @@
 # Introduction
 This program translates a text n-times.
 ## How to use
-- Run the file "n-times_translator.py".
+- Run the file "nxt.py".
 - Write the file path and press enter.
 - Write the source language code and press enter.
 ```bash
