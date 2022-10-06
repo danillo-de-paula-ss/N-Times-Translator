@@ -133,3 +133,4 @@ setup.py
 tests/
 .rest/
 main2.py
+.vscode/
