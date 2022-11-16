@@ -1,6 +1,6 @@
 # N-Times Translator
 from googletrans2 import Translator, LANGCODES
-from time import sleep
+from datetime import datetime
 import traceback
 import os
 import sys
@@ -20,7 +20,7 @@ def find_data_file(filename):
 
 # Create a header
 def header_and_input(ipt='', type='str'):
-    print('\033[34mN-times Translator\033[m')
+    print('\033[34mN-Times Translator\033[m')
     if type == 'int':
         while True:
             try:
@@ -40,9 +40,9 @@ def header_and_input(ipt='', type='str'):
                 print('\033[31mPlease enter natural numbers only.\033[m')
     elif type == 'path':
         while True:
-            rt = find_data_file(input(ipt))
+            rt = input(ipt)
             # Check if the path exits
-            if os.path.exists(rt):
+            if os.path.exists(find_data_file(rt)) and rt != '':
                 break
             else:
                 print('\033[31mPlease enter a valid path.\033[m')
@@ -70,18 +70,22 @@ amount = header_and_input('amount: ', 'natural')
 count = 0
 attempts = 0
 
-# opening the file and extracting the data
+# opening the file and extracting the datas
 with open(path, 'rt', encoding='utf-8') as file:
     text = ""
     for line in file:
         text += line
 
 # doing the translation n times
-print('\033[34mN-times Translator\033[m')
+print('\033[34mN-Times Translator\033[m\n')
+start_time = datetime.now()
 for x in range(amount + 1):
     if count >= len(languages):
         count = 0
-    print(f'{round((x / amount if amount > 0 else 1) * 100, 2):.2f}%')
+    elapsed_time = datetime.now() - start_time
+    progress = round((x / amount if amount > 0 else 1) * 100, 2)
+    progress_bar = f'\033[A[{"=" * int(progress / 2):<50}] \033[36m{progress:>6.2f}%\033[m of {amount} in \033[33m{str(elapsed_time)[2:7]}\033[m'
+    print(progress_bar)
     if x == amount:
         tl = tli
     else:
@@ -109,24 +113,31 @@ for x in range(amount + 1):
         except Exception as err:
             if err is not KeyboardInterrupt:
                 attempts += 1
-                if attempts > 1:
-                    print("Attempts: ", attempts)
-                else:
-                    print("\nAttempts: ", attempts)
                 exc_type, exc_value, exc_tb = sys.exc_info()
-                tb = traceback.TracebackException(exc_type, exc_value, exc_tb)
-                print(''.join(tb.format_exception_only()))
+                tb = traceback.TracebackException(exc_type,
+                                                  exc_value,
+                                                  exc_tb)
+                tb_txt = "".join(tb.format_exception_only())
+                print(f'\033[A{tb_txt[:-1]}. Retrying ({attempts} of 10)...' +
+                      ' ' * 50)
+                print(progress_bar)
                 if attempts >= 10:
-                    print('\n', count, sl, tl)
-                    raise Exception("Exceeded 10 attempts")
+                    print('\033[A\033[31mERROR:\033[m' +
+                          f'{tb_txt[tb_txt.find(":") + 1:-1]}' +
+                          ' ' * 50)
+                    input('Press enter to close...')
+                    break
             else:
                 break
+    if attempts >= 10:
+        break
     sl = tl
     count += 1
 
-# save the translation in a .txt file
-print('Saving in the file "result.txt"...')
-with open(find_data_file('result.txt'), 'wt', encoding='utf-8') as save_file:
-    save_file.write(text)
-print('Complete!')
-input('Press enter to close...')
+if attempts < 10:
+    # save the translation in a .txt file
+    print('Saving in the file "result.txt"...')
+    with open(find_data_file('result.txt'), 'wt', encoding='utf-8') as save_file:
+        save_file.write(text)
+    print('Complete!')
+    input('Press enter to close...')

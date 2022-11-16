@@ -6,7 +6,7 @@ import time
 
 import httpx
 
-from googletrans.utils import rshift
+from googletrans2.utils import rshift
 
 
 class TokenAcquirer:
@@ -64,7 +64,8 @@ class TokenAcquirer:
             # unescape special ascii characters such like a \x3d(=)
             code = code.encode().decode('unicode-escape')
         except AttributeError:
-            raise Exception('Could not find TKK token for this request.\nSee https://github.com/ssut/py-googletrans/issues/234 for more details.')
+            raise Exception(
+                'Could not find TKK token for this request.\nSee https://github.com/ssut/py-googletrans/issues/234 for more details.')
         except:
             raise
 
@@ -175,7 +176,8 @@ class TokenAcquirer:
                     if (l & 64512) == 55296 and g + 1 < size and \
                             a[g + 1] & 64512 == 56320:
                         g += 1
-                        l = 65536 + ((l & 1023) << 10) + (a[g] & 1023)  # This bracket is important
+                        # This bracket is important
+                        l = 65536 + ((l & 1023) << 10) + (a[g] & 1023)
                         e.append(l >> 18 | 240)
                         e.append(l >> 12 & 63 | 128)
                     else:

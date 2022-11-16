@@ -128,9 +128,12 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Unchecked files
 result.txt
 setup.py
 tests/
 .rest/
 main2.py
 .vscode/
+improvements.txt
+test.py
