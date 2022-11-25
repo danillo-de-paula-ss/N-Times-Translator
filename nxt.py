@@ -46,7 +46,7 @@ def header_and_input(ipt='', type='str'):
                 break
             else:
                 print('\033[31mPlease enter a valid path.\033[m')
-    elif type == 'checkList':
+    elif type == 'checklist':
         while True:
             rt = input(ipt)
             if rt in LANGCODES.values():
@@ -64,8 +64,8 @@ os.system('cls')
 translator = Translator()
 languages = list(LANGCODES.values())
 path = header_and_input('text file path: ', 'path')
-sl = header_and_input('source: ', 'checkList')
-tli = header_and_input('destiny: ', 'checkList')
+sl = header_and_input('source: ', 'checklist')
+tli = header_and_input('destiny: ', 'checklist')
 amount = header_and_input('amount: ', 'natural')
 count = 0
 attempts = 0
