@@ -136,3 +136,4 @@ main2.py
 .vscode/
 improvements.txt
 test.py
+.gitignore
