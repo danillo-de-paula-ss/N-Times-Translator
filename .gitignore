@@ -130,7 +130,6 @@ dmypy.json
 
 # Unchecked files
 result.txt
-setup.py
 tests/
 .rest/
 main2.py

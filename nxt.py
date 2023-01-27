@@ -59,85 +59,102 @@ def header_and_input(ipt='', type='str'):
     return rt
 
 
-# defining variables
-os.system('cls')
-translator = Translator()
-languages = list(LANGCODES.values())
-path = header_and_input('text file path: ', 'path')
-sl = header_and_input('source: ', 'checklist')
-tli = header_and_input('destiny: ', 'checklist')
-amount = header_and_input('amount: ', 'natural')
-count = 0
-attempts = 0
+def main():
+    # defining variables
+    os.system('cls')
+    translator = Translator()
+    languages = list(LANGCODES.values())
+    path = header_and_input('text file path: ', 'path')
+    sl = header_and_input('source: ', 'checklist')
+    tli = header_and_input('destiny: ', 'checklist')
+    amount = header_and_input('amount: ', 'natural')
+    count = 0
+    attempts = 0
 
-# opening the file and extracting the datas
-with open(path, 'rt', encoding='utf-8') as file:
-    text = ""
-    for line in file:
-        text += line
+    # opening the file and extracting the datas
+    with open(path, 'rt', encoding='utf-8') as file:
+        text = "".join(file.readlines())
 
-# doing the translation n times
-print('\033[34mN-Times Translator\033[m\n')
-start_time = datetime.now()
-for x in range(amount + 1):
-    if count >= len(languages):
-        count = 0
-    elapsed_time = datetime.now() - start_time
-    progress = round((x / amount if amount > 0 else 1) * 100, 2)
-    progress_bar = f'\033[A[{"=" * int(progress / 2):<50}] \033[36m{progress:>6.2f}%\033[m of {amount} in \033[33m{str(elapsed_time)[2:7]}\033[m'
-    print(progress_bar)
-    if x == amount:
-        tl = tli
-    else:
-        tl = languages[count]
-    texts = [""]
-    key = 0
-    for line in text.split('\n'):
-        if len(texts[key]) + len(line[:1000]) > 4000:
-            texts.append("")
-            key += 1
-        if len(line) > 1000:
-            texts[key] += line[:1000] + '\n'
-        else:
-            texts[key] += line + '\n'
-    while True:
-        try:
-            text = ""
-            for k, v in enumerate(texts, start=1):
-                if v != "":
-                    text += translator.translate(v, src=sl, dest=tl).text
-                    if k < len(texts):
-                        text += '\n'
-            attempts = 0
+    # counting the empty lines at the beginning and end
+    lines = text.split('\n')
+    initial_empty_lines = 0
+    for v in lines:
+        if v != '':
             break
-        except Exception as err:
-            if err is not KeyboardInterrupt:
-                attempts += 1
-                exc_type, exc_value, exc_tb = sys.exc_info()
-                tb = traceback.TracebackException(exc_type,
-                                                  exc_value,
-                                                  exc_tb)
-                tb_txt = "".join(tb.format_exception_only())
-                print(f'\033[A{tb_txt[:-1]}. Retrying ({attempts} of 10)...' +
-                      ' ' * 50)
-                print(progress_bar)
-                if attempts >= 10:
-                    print('\033[A\033[31mERROR:\033[m' +
-                          f'{tb_txt[tb_txt.find(":") + 1:-1]}' +
-                          ' ' * 50)
-                    input('Press enter to close...')
-                    break
-            else:
-                break
-    if attempts >= 10:
-        break
-    sl = tl
-    count += 1
+        initial_empty_lines += 1
+    last_empty_lines = 0
+    for v in reversed(lines):
+        if v != '':
+            break
+        last_empty_lines += 1
 
-if attempts < 10:
-    # save the translation in a .txt file
-    print('Saving in the file "result.txt"...')
-    with open(find_data_file('result.txt'), 'wt', encoding='utf-8') as save_file:
-        save_file.write(text)
-    print('Complete!')
-    input('Press enter to close...')
+    # doing the translation n times
+    print('\033[34mN-Times Translator\033[m\n')
+    initial_time = datetime.now()
+    for x in range(amount + 1):
+        if count >= len(languages):
+            count = 0
+        elapsed_time = datetime.now() - initial_time
+        progress = round((x / amount if amount > 0 else 1) * 100, 2)
+        progress_bar = f'\033[A[{"=" * int(progress / 2):<50}] \033[36m{progress:>6.2f}%\033[m of {amount} in \033[33m{str(elapsed_time)[2:7]}\033[m'
+        print(progress_bar)
+        if x == amount:
+            tl = tli
+        else:
+            tl = languages[count]
+        key = 0
+        texts = [""]
+        for line in text.split('\n'):
+            if len(texts[key]) + len(line[:1000]) > 4000:
+                texts.append("")
+                key += 1
+            if len(line) > 1000:
+                texts[key] += line[:1000] + '\n'
+            else:
+                texts[key] += line + '\n'
+        while True:
+            try:
+                text = ""
+                for k, v in enumerate(texts, start=1):
+                    if v != "":
+                        text += translator.translate(v, src=sl, dest=tl).text
+                        if k < len(texts):
+                            text += '\n'
+                attempts = 0
+                break
+            except Exception as err:
+                if err is not KeyboardInterrupt:
+                    attempts += 1
+                    exc_type, exc_value, exc_tb = sys.exc_info()
+                    tb = traceback.TracebackException(exc_type,
+                                                      exc_value,
+                                                      exc_tb)
+                    tb_txt = "".join(tb.format_exception_only())
+                    print(f'\033[A{tb_txt[:-1]}. Retrying ({attempts} of 10)...' +
+                          ' ' * 50)
+                    print(progress_bar)
+                    if attempts >= 10:
+                        print('\033[A\033[31mERROR:\033[m' +
+                              f'{tb_txt[tb_txt.find(":") + 1:-1]}' +
+                              ' ' * 50)
+                        input('Press enter to close...')
+                        break
+                else:
+                    break
+        if attempts >= 10:
+            break
+        sl = tl
+        count += 1
+
+    if attempts < 10:
+        # save the translation in a .txt file
+        print('Saving in the file "result.txt"...')
+        with open(find_data_file('result.txt'), 'wt', encoding='utf-8') as save_file:
+            save_file.write('\n' * initial_empty_lines +
+                            text + '\n' * last_empty_lines)
+        print('Complete!')
+        input('Press enter to close...')
+
+
+if __name__ == '__main__':
+    main()
