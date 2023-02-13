@@ -109,7 +109,7 @@ def main():
             count = 0
         elapsed_time = datetime.now() - initial_time
         progress = round((x / amount if amount > 0 else 1) * 100, 2)
-        progress_bar = f'\033[A[{"=" * int(progress / 2):<50}] \033[36m{progress:>6.2f}%\033[m of {amount} in \033[33m{str(elapsed_time)[2:7]}\033[m'
+        progress_bar = f'\033[A[{"=" * int(progress / 2):<50}] \033[36m{progress:>6.2f}%\033[m of {amount} in \033[33m{str(elapsed_time)[2:7]}\033[m' + ' ' * 30
         print(progress_bar)
         if x == amount:
             tl = tli
