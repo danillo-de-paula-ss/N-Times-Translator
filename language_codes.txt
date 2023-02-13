@@ -1,3 +1,4 @@
+CODE -> LANGUAGE
 af -> afrikaans
 sq -> albanian
 am -> amharic
