@@ -136,3 +136,5 @@ main2.py
 .vscode/
 improvements.txt
 test.py
+create_language_codes_file.py
+nxt.py

@@ -1,10 +1,10 @@
 # N-Times Translator
 from googletrans2 import Translator, LANGCODES
 from datetime import datetime
+from random import choices
 import traceback
 import os
 import sys
-
 
 # Find path
 def find_data_file(filename):
@@ -17,57 +17,70 @@ def find_data_file(filename):
         datadir = os.path.dirname(__file__)
     return os.path.join(datadir, filename)
 
-
 # Create a header
-def header_and_input(ipt='', type='str'):
-    print('\033[34mN-Times Translator\033[m')
-    if type == 'int':
+def header():
+    return '\033[1;36m' + ' N-Times Translator '.center(os.get_terminal_size().columns, '-') + '\033[m'
+
+# Inputs
+def header_and_input(prompt='', type='string'):
+    print(header())
+    if type == 'integer':
         while True:
             try:
-                rt = int(input(ipt))
+                ans = int(input(prompt))
                 break
-            except:
+            except ValueError:
                 print('\033[31mPlease enter integers only.\033[m')
     elif type == 'natural':
         while True:
             try:
-                rt = int(input(ipt))
-                if rt >= 0:
+                ans = int(input(prompt))
+                if ans >= 0:
                     break
                 else:
                     print('\033[31mPlease enter natural numbers only.\033[m')
-            except:
+            except ValueError:
                 print('\033[31mPlease enter natural numbers only.\033[m')
     elif type == 'path':
         while True:
-            rt = input(ipt)
+            ans = input(prompt)
             # Check if the path exits
-            if os.path.exists(find_data_file(rt)) and rt != '':
+            if os.path.exists(find_data_file(ans)) and ans != '':
                 break
             else:
                 print('\033[31mPlease enter a valid path.\033[m')
     elif type == 'checklist':
+        print('\033[35mOpen \033[4mlanguage_codes.txt\033[0;35m to see a list of available language codes\033[m')
         while True:
-            rt = input(ipt)
-            if rt in LANGCODES.values():
+            ans = input(prompt)
+            if ans in LANGCODES.values():
                 break
             else:
                 print('\033[31mPlease enter a valid language code.\033[m')
+    elif type == 'choice':
+        while True:
+            ans = input(prompt)
+            if ans == 'y' or ans == 'n':
+                break
+            else:
+                print('\033[31mPlease answer y or n.\033[m')
     else:
-        rt = input(ipt)
+        ans = input(prompt)
     os.system('cls')
-    return rt
-
+    return ans
 
 def main():
     # defining variables
     os.system('cls')
     translator = Translator()
     languages = list(LANGCODES.values())
-    path = header_and_input('text file path: ', 'path')
-    sl = header_and_input('source: ', 'checklist')
-    tli = header_and_input('destiny: ', 'checklist')
-    amount = header_and_input('amount: ', 'natural')
+    path = header_and_input('Text File Path: ', 'path')
+    sl = header_and_input('Source: ', 'checklist')
+    tli = header_and_input('Destiny: ', 'checklist')
+    amount = header_and_input('Amount: ', 'natural')
+    randomize_languages = header_and_input('Randomly translate? (y/n) ', 'choice')
+    if randomize_languages == 'y':
+        languages = choices(languages, k=len(languages))
     count = 0
     attempts = 0
 
@@ -89,7 +102,7 @@ def main():
         last_empty_lines += 1
 
     # doing the translation n times
-    print('\033[34mN-Times Translator\033[m\n')
+    print(header() + '\n')
     initial_time = datetime.now()
     for x in range(amount + 1):
         if count >= len(languages):
@@ -126,17 +139,12 @@ def main():
                 if err is not KeyboardInterrupt:
                     attempts += 1
                     exc_type, exc_value, exc_tb = sys.exc_info()
-                    tb = traceback.TracebackException(exc_type,
-                                                      exc_value,
-                                                      exc_tb)
+                    tb = traceback.TracebackException(exc_type, exc_value, exc_tb)
                     tb_txt = "".join(tb.format_exception_only())
-                    print(f'\033[A{tb_txt[:-1]}. Retrying ({attempts} of 10)...' +
-                          ' ' * 50)
+                    print(f'\033[A{tb_txt[:-1]}. Retrying ({attempts} of 10)...' + ' ' * 50)
                     print(progress_bar)
                     if attempts >= 10:
-                        print('\033[A\033[31mERROR:\033[m' +
-                              f'{tb_txt[tb_txt.find(":") + 1:-1]}' +
-                              ' ' * 50)
+                        print('\033[A\033[31mERROR:\033[m' + f'{tb_txt[tb_txt.find(":") + 1:-1]}' + ' ' * 50)
                         input('Press enter to close...')
                         break
                 else:
@@ -150,8 +158,7 @@ def main():
         # save the translation in a .txt file
         print('Saving in the file "result.txt"...')
         with open(find_data_file('result.txt'), 'wt', encoding='utf-8') as save_file:
-            save_file.write('\n' * initial_empty_lines +
-                            text + '\n' * last_empty_lines)
+            save_file.write('\n' * initial_empty_lines + text + '\n' * last_empty_lines)
         print('Complete!')
         input('Press enter to close...')
 
