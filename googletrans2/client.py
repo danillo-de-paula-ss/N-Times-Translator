@@ -4,15 +4,13 @@ A Translation module.
 
 You can translate text using this module.
 """
+
+import json
+import httpx
 import random
 import typing
-import re
-import json
-
 import httpcore
-import httpx
 from httpx import Timeout
-
 from googletrans2 import urls, utils
 from googletrans2.gtoken import TokenAcquirer
 from googletrans2.constants import (
@@ -60,7 +58,7 @@ class Translator:
 
     def __init__(self, service_urls=DEFAULT_CLIENT_SERVICE_URLS, user_agent=DEFAULT_USER_AGENT,
                  raise_exception=DEFAULT_RAISE_EXCEPTION,
-                 proxies: typing.Dict[str, httpcore.SyncHTTPTransport] = None,
+                 proxies: typing.Dict[str, httpcore._sync.interfaces.RequestInterface] = None,
                  timeout: Timeout = None,
                  http2=True,
                  use_fallback=False):
@@ -90,12 +88,12 @@ class Translator:
 
         self.raise_exception = raise_exception
 
-    def _build_rpc_request(self, text: str, dest: str, src: str):
+    @staticmethod
+    def _build_rpc_request(text: str, dest: str, src: str):
         return json.dumps([[
             [
                 RPC_ID,
-                json.dumps([[text, src, dest, True], [None]],
-                           separators=(',', ':')),
+                json.dumps([[text, src, dest, True], [None]], separators=(',', ':')),
                 None,
                 'generic',
             ],
@@ -149,7 +147,8 @@ class Translator:
         DUMMY_DATA[0][0][0] = text
         return DUMMY_DATA, r
 
-    def _parse_extra_data(self, data):
+    @staticmethod
+    def _parse_extra_data(data):
         response_parts_name_mapping = {
             0: 'translation',
             1: 'all-translations',
@@ -225,10 +224,8 @@ class Translator:
         parsed = json.loads(data[0][2])
         # not sure
         should_spacing = parsed[1][0][0][3]
-        translated_parts = list(map(lambda part: TranslatedPart(
-            part[0], part[1] if len(part) >= 2 else []), parsed[1][0][0][5]))
-        translated = (' ' if should_spacing else '').join(
-            map(lambda part: part.text if type(part.text) is str else "", translated_parts))
+        translated_parts = list(map(lambda part: TranslatedPart(part[0], part[1] if len(part) >= 2 else []), parsed[1][0][0][5]))
+        translated = (' ' if should_spacing else '').join(map(lambda part: part.text if type(part.text) is str else "", translated_parts))
 
         if src == 'auto':
             try:
@@ -334,13 +331,12 @@ class Translator:
         if isinstance(text, list):
             result = []
             for item in text:
-                translated = self.translate_legacy(
-                    item, dest=dest, src=src, **kwargs)
+                translated = self.translate_legacy(item, dest=dest, src=src, **kwargs)
                 result.append(translated)
             return result
 
         origin = text
-        data, response = self.translate_legacy(text, dest, src)
+        data, response = self._translate_legacy(text, dest, src, kwargs)
 
         # this code will be updated when the format is changed.
         translated = ''.join([d[0] if d[0] else '' for d in data[0]])
@@ -373,14 +369,13 @@ class Translator:
         result = Translated(src=src, dest=dest, origin=origin,
                             text=translated, pronunciation=pron,
                             extra_data=extra_data,
-                            response=response)
+                            response=response, parts=None)
 
         return result
 
     def detect(self, text: str):
         translated = self.translate(text, src='auto', dest='en')
-        result = Detected(lang=translated.src, confidence=translated.extra_data.get(
-            'confidence', None), response=translated._response)
+        result = Detected(lang=translated.src, confidence=translated.extra_data.get('confidence', None), response=translated._response)
         return result
 
     def detect_legacy(self, text, **kwargs):

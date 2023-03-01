@@ -141,7 +141,7 @@ def main():
                     exc_type, exc_value, exc_tb = sys.exc_info()
                     tb = traceback.TracebackException(exc_type, exc_value, exc_tb)
                     tb_txt = "".join(tb.format_exception_only())
-                    print(f'\033[A{tb_txt[:-1]}. Retrying ({attempts} of 10)...' + ' ' * 50)
+                    print(f'\033[A{tb_txt[:-1]}. Retrying ({attempts} of 10)...' + ' ' * 50 + '\n')
                     print(progress_bar)
                     if attempts >= 10:
                         print('\033[A\033[31mERROR:\033[m' + f'{tb_txt[tb_txt.find(":") + 1:-1]}' + ' ' * 50)
