@@ -73,14 +73,12 @@ def main():
     # defining variables
     os.system('cls')
     translator = Translator()
-    languages = list(LANGCODES.values())
+    og_languages = list(LANGCODES.values())
     path = header_and_input('Text File Path: ', 'path')
     sl = header_and_input('Source: ', 'checklist')
     tli = header_and_input('Destiny: ', 'checklist')
     amount = header_and_input('Amount: ', 'natural')
     randomize_languages = header_and_input('Randomly translate? (y/n) ', 'choice')
-    if randomize_languages == 'y':
-        languages = choices(languages, k=len(languages))
     count = 0
     attempts = 0
 
@@ -103,10 +101,12 @@ def main():
 
     # doing the translation n times
     print(header() + '\n')
+    languages = choices(og_languages, k=len(og_languages)) if randomize_languages == 'y' else og_languages
     initial_time = datetime.now()
     for x in range(amount + 1):
-        if count >= len(languages):
+        if count >= len(og_languages):
             count = 0
+            languages = choices(og_languages, k=len(og_languages)) if randomize_languages == 'y' else og_languages
         elapsed_time = datetime.now() - initial_time
         progress = round((x / amount if amount > 0 else 1) * 100, 2)
         progress_bar = f'\033[A[{"=" * int(progress / 2):<50}] \033[36m{progress:>6.2f}%\033[m of {amount} in \033[33m{str(elapsed_time)[2:7]}\033[m' + ' ' * 30
