@@ -135,6 +135,15 @@ tests/
 main2.py
 .vscode/
 improvements.txt
-test.py
 create_language_codes_file.py
+test.ipynb
 test.txt
+test.py
+test1.py
+test2.py
+annotations.txt
+buttons/copy.png
+buttons/diskette.png
+buttons/open-file.png
+buttons/paste.png
+buttons/switch.png
