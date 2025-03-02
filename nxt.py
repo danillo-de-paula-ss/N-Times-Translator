@@ -1,11 +1,17 @@
 # N-Times Translator
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
+from tkinter import filedialog
 from tkinter.constants import *
-# import translators as ts
 import os
 import json
 from PIL import Image, ImageTk
+from utilities import Translator, nxt
+from itertools import cycle
+import pyperclip
+import threading
+import queue
 
 class App(tk.Tk):
     def __init__(self, screenName = None, baseName = None, className = "Tk", useTk = True, sync = False, use = None):
@@ -32,6 +38,10 @@ class App(tk.Tk):
             self.icon = tk.PhotoImage(file='nxt.png')
             self.iconphoto(True, self.icon)
         self.geometry('1400x800')
+        self.thread = None
+        self.bucket = queue.Queue()
+        self.atfer_id = ''
+        self.progress_text = 'source: {source}, target: {target}, times: {times}, progress: {progress}, status: {status}' + ' ' * 4
 
         # menu
         self.menu = tk.Menu(self)
@@ -95,13 +105,13 @@ class App(tk.Tk):
 
         # paste text button
         self.paste_img = ImageTk.PhotoImage(Image.open('buttons/paste.png').resize((30, 30), reducing_gap=1.0))
-        self.sl_paste_btn = ttk.Button(self.sl_frame, image=self.paste_img, padding=(0, 0))
+        self.sl_paste_btn = ttk.Button(self.sl_frame, image=self.paste_img, padding=(0, 0), command=self.paste_text)
         self.sl_paste_btn.grid(row=1, column=1, pady=(0, 2), padx=4)
 
-        # open text button
-        self.open_text_img = ImageTk.PhotoImage(Image.open('buttons/open-file.png').resize((30, 30), reducing_gap=1.0))
-        self.sl_open_text_btn = ttk.Button(self.sl_frame, image=self.open_text_img, padding=(0, 0))
-        self.sl_open_text_btn.grid(row=1, column=2, pady=(0, 2))
+        # open file button
+        self.open_file_img = ImageTk.PhotoImage(Image.open('buttons/open-file.png').resize((30, 30), reducing_gap=1.0))
+        self.sl_open_file_btn = ttk.Button(self.sl_frame, image=self.open_file_img, padding=(0, 0), command=self.open_text_file)
+        self.sl_open_file_btn.grid(row=1, column=2, pady=(0, 2))
 
         # source language textbox frame
         self.sl_text_frame = tk.Frame(self.main_frame)
@@ -126,37 +136,37 @@ class App(tk.Tk):
         # panel frame config
         # switch languages button
         self.swap_img = ImageTk.PhotoImage(Image.open('buttons/switch.png').resize((80, 80), reducing_gap=1.0))
-        self.swap_language_btn = ttk.Button(self.panel_frame, text='Switch Languages', image=self.swap_img, padding=(0, 0), compound=TOP, style='Style1.TButton')
+        self.swap_language_btn = ttk.Button(self.panel_frame, text='Switch Languages', image=self.swap_img, padding=(0, 0), compound=TOP, style='Style1.TButton', command=self.swap_langs)
         self.swap_language_btn.pack(ipadx=10, ipady=10)
 
         # push element
-        self.push = tk.Text(self.panel_frame, font='_ 1', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9')
-        self.push.pack(fill=Y, expand=True)
+        self.vpush1 = tk.Text(self.panel_frame, font='_ 1', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9', highlightthickness=0)
+        self.vpush1.pack(fill=Y, expand=True)
 
         # translation times frame
-        self.trans_times_frame = tk.Frame(self.panel_frame)
-        self.trans_times_frame.pack()
+        self.ts_times_frame = tk.Frame(self.panel_frame)
+        self.ts_times_frame.pack()
 
         # translation times label 1
-        self.trans_times_label_1 = ttk.Label(self.trans_times_frame, text='Translate', anchor=CENTER)
-        self.trans_times_label_1.grid(row=0, column=0, ipadx=6, ipady=6)
+        self.ts_times_label_1 = ttk.Label(self.ts_times_frame, text='Translate', anchor=CENTER)
+        self.ts_times_label_1.grid(row=0, column=0, ipadx=6, ipady=6)
 
         # translation times spin
-        self.trans_times_spin = ttk.Spinbox(self.trans_times_frame, from_=0, to=1000, font=('Helvetica', 12), width=10)
-        self.trans_times_spin.set(0)
-        self.trans_times_spin.grid(row=0, column=1)
+        self.ts_times_spin = ttk.Spinbox(self.ts_times_frame, from_=1, to=1000, font=('Helvetica', 12), width=10)
+        self.ts_times_spin.set(4)
+        self.ts_times_spin.grid(row=0, column=1)
 
         # translation times label 2
-        self.trans_times_label_2 = ttk.Label(self.trans_times_frame, text='times', anchor=CENTER)
-        self.trans_times_label_2.grid(row=0, column=2, ipadx=6, ipady=6)
+        self.ts_times_label_2 = ttk.Label(self.ts_times_frame, text='times', anchor=CENTER)
+        self.ts_times_label_2.grid(row=0, column=2, ipadx=6, ipady=6)
 
         # start button
-        self.start_button = ttk.Button(self.panel_frame, text='Start Translation!', padding=(0, 0), style='Style2.TButton')
+        self.start_button = ttk.Button(self.panel_frame, text='Start Translation!', padding=(0, 0), style='Style2.TButton', command=self.start_translation)
         self.start_button.pack(pady=(10, 0), ipadx=8, ipady=8)
 
         # push element
-        self.push = tk.Text(self.panel_frame, font='_ 1', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9')
-        self.push.pack(fill=Y, expand=True)
+        self.vpush2 = tk.Text(self.panel_frame, font='_ 1', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9', highlightthickness=0)
+        self.vpush2.pack(fill=Y, expand=True)
 
         # target frame config
         # target language label
@@ -170,12 +180,12 @@ class App(tk.Tk):
 
         # copy text button
         self.copy_img = ImageTk.PhotoImage(Image.open('buttons/copy.png').resize((30, 30), reducing_gap=1.0))
-        self.tl_copy_btn = ttk.Button(self.tl_frame, image=self.copy_img, padding=(0, 0))
+        self.tl_copy_btn = ttk.Button(self.tl_frame, image=self.copy_img, padding=(0, 0), command=self.copy_text)
         self.tl_copy_btn.grid(row=1, column=1, pady=(0, 2), padx=4)
 
-        # open text button
+        # save text button
         self.save_text_img = ImageTk.PhotoImage(Image.open('buttons/diskette.png').resize((30, 30), reducing_gap=1.0))
-        self.tl_save_text_btn = ttk.Button(self.tl_frame, image=self.save_text_img, padding=(0, 0))
+        self.tl_save_text_btn = ttk.Button(self.tl_frame, image=self.save_text_img, padding=(0, 0), command=self.save_text_file)
         self.tl_save_text_btn.grid(row=1, column=2, pady=(0, 2))
 
         # target language textbox frame
@@ -203,8 +213,81 @@ class App(tk.Tk):
         self.progress_bar.pack(fill=X, pady=(10, 0))
 
         # progress label
-        self.progress_label = tk.Label(text='source: en, target: pt, times: 10, progress: 100%, status: Complete!    ', anchor=E, bd=1, relief=SUNKEN)
+        self.progress_label = tk.Label(text=self.progress_text.format(source='auto', target='en', times=4, progress='0%', status='Stopped!'), anchor=E, bd=1, relief=SUNKEN)
         self.progress_label.pack(fill=X, side=BOTTOM)
+
+    def start_translation(self):
+        source_code = self.source_codes[self.sl_combo.get()]
+        target_code = self.target_codes[self.tl_combo.get()]
+        codes = cycle(self.target_codes.values())
+        source_text = self.sl_text.get("1.0", END)
+        times = int(self.ts_times_spin.get())
+        try:
+            ts = Translator()
+            self.thread = threading.Thread(target=nxt, args=(ts, source_text, source_code, target_code, times, codes), kwargs={'bucket': self.bucket}, daemon=True)
+            self.thread.start()
+            self.progress_label.config(text=self.progress_text.format(source=source_code, target=target_code, times=times, progress='0%', status='Running...'))
+            # self.source_code = source_code
+            # self.target_code = target_code
+            # self.times = times
+            # translations = ""
+            # translations += f"{source_code} -> {code}\n"
+            # translations += f"{source_code} -> {target_code}\n"
+            # print(translations[:-1])
+            # self.tl_text.delete("1.0", END)
+            # self.tl_text.insert("1.0", source_text)
+            self.after_id = self.after(100, lambda: self.update_status(source_code, target_code, times))
+        except ConnectionError as err:
+            messagebox.showerror('Connection Error', str(err))
+    
+    def update_status(self, source: str, target: str, times: int):
+        try:
+            response: dict[str, str | None] = self.bucket.get_nowait()
+            self.progress_label.config(text=self.progress_text.format(source=source, target=target, times=times, progress=response['progress'], status=response['status']))
+            if response['status'] == 'Complete!':
+                self.after_cancel(self.after_id)
+                self.tl_text.delete("1.0", END)
+                self.tl_text.insert("1.0", response['text'])
+        except queue.Empty:
+            pass
+
+    def paste_text(self):
+        try:
+            text = pyperclip.paste()
+            self.sl_text.delete('1.0', END)
+            self.sl_text.insert('1.0', text)
+        except pyperclip.PyperclipException as err:
+            messagebox.showerror('Copy/paste mechanism missing', str(err))
+    
+    def open_text_file(self):
+        filename = filedialog.askopenfilename(defaultextension='.txt', filetypes=(('Text Files', '.txt',),), initialdir='/home/danillo/Documentos', title='Open text file')
+        if filename:
+            with open(filename, 'rt', encoding='utf-8') as file:
+                text = file.read()
+            self.sl_text.delete('1.0', END)
+            self.sl_text.insert('1.0', text)
+        
+    def swap_langs(self):
+        sl_lang = self.sl_combo.get()
+        if sl_lang != self.source_langs['auto']:
+            tl_lang = self.tl_combo.get()
+            self.sl_combo.delete(0, END)
+            self.tl_combo.delete(0, END)
+            self.sl_combo.insert(0, tl_lang)
+            self.tl_combo.insert(0, sl_lang)
+
+    def copy_text(self):
+        try:
+            text = self.tl_text.get('1.0', END)
+            pyperclip.copy(text)
+        except pyperclip.PyperclipException as err:
+            messagebox.showerror('Copy/paste mechanism missing', str(err))
+    
+    def save_text_file(self):
+        filename = filedialog.asksaveasfilename(defaultextension='.txt', filetypes=(('Text Files', '.txt',),), initialdir='/home/danillo/Documentos', initialfile='output.txt', title='Save text file')
+        if filename:
+            with open(filename, 'wt', encoding='utf-8') as file:
+                file.write(self.tl_text.get('1.0', END))
 
 if __name__ == '__main__':
     app = App()
