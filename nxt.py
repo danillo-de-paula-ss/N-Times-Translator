@@ -7,11 +7,16 @@ from tkinter.constants import *
 import os
 import json
 from PIL import Image, ImageTk
-from utilities import Translator, nxt
+from utilities import Translator, nxt, import_module
 from itertools import cycle
 import pyperclip
-import threading
-import queue
+# import threading
+# import queue
+from multiprocessing import Process, Queue, Pipe
+from multiprocess.queues import Empty
+from multiprocess.connection import Connection
+import importlib
+from typing import Callable
 
 class App(tk.Tk):
     def __init__(self, screenName = None, baseName = None, className = "Tk", useTk = True, sync = False, use = None):
@@ -38,9 +43,10 @@ class App(tk.Tk):
             self.icon = tk.PhotoImage(file='nxt.png')
             self.iconphoto(True, self.icon)
         self.geometry('1400x800')
-        self.thread = None
-        self.bucket = queue.Queue()
-        self.atfer_id = ''
+        self.process = None
+        self.import_proc = None
+        self.bucket = Queue()
+        # self.atfer_id = ''
         self.progress_text = 'source: {source}, target: {target}, times: {times}, progress: {progress}, status: {status}' + ' ' * 4
 
         # menu
@@ -161,7 +167,7 @@ class App(tk.Tk):
         self.ts_times_label_2.grid(row=0, column=2, ipadx=6, ipady=6)
 
         # start button
-        self.start_button = ttk.Button(self.panel_frame, text='Start Translation!', padding=(0, 0), style='Style2.TButton', command=self.start_translation)
+        self.start_button = ttk.Button(self.panel_frame, text='Start Translation!', padding=(0, 0), style='Style2.TButton', command=lambda: self.import_module_async('translators', 5, self.on_import_finished))
         self.start_button.pack(pady=(10, 0), ipadx=8, ipady=8)
 
         # push element
@@ -216,40 +222,77 @@ class App(tk.Tk):
         self.progress_label = tk.Label(text=self.progress_text.format(source='auto', target='en', times=4, progress='0%', status='Stopped!'), anchor=E, bd=1, relief=SUNKEN)
         self.progress_label.pack(fill=X, side=BOTTOM)
 
-    def start_translation(self):
+    def import_module_async(self, module_name: str, timeout: int, callback: Callable):
+        """Importa um módulo em um subprocesso com tempo limite e chama o callback."""
+        self.start_button.config(state=DISABLED)
+        parent_conn, child_conn = Pipe()
+        process = Process(target=import_module, args=(child_conn, module_name), daemon=True)
+        process.start()
+        self.after(1000, self.wait_process, 0, timeout, process, parent_conn, callback)
+
+    def wait_process(self, count: int, timeout: int, process: Process, parent_conn: Connection, callback: Callable):
+        count += 1
+        if count >= timeout:
+            if process.is_alive():
+                process.terminate()
+                process.join()
+                self.after(0, callback, None, f"Tempo limite excedido ({timeout}s)", None)
+                return
+
+            if parent_conn.poll():  # Se há dados no pipe
+                success, result, elapsed_time = parent_conn.recv()
+                if success:
+                    self.after(0, callback, importlib.import_module(result), None, elapsed_time)
+                else:
+                    self.after(0, callback, None, result, None)
+            else:
+                self.after(0, callback, None, "Falha desconhecida ao importar o módulo.", None)
+        else:
+            self.after(1000, self.wait_process, count, timeout, process, parent_conn, callback)
+
+    def on_import_finished(self, module, error, elapsed_time):
+        """Callback chamado quando a importação terminar."""
+        if error:
+            # messagebox.showerror("Erro", f"Erro ao importar módulo:\n{error}")
+            print(f"Erro ao importar módulo:\n{error}")
+            self.start_button.config(state=NORMAL)
+        else:
+            # messagebox.showinfo("Sucesso", f"Módulo '{module.__name__}' importado em {elapsed_time:.2f} segundos")
+            print(f"Módulo '{module.__name__}' importado em {elapsed_time:.2f} segundos")
+            self.start_translation(ts=module)
+    
+    def start_translation(self, ts):
         source_code = self.source_codes[self.sl_combo.get()]
         target_code = self.target_codes[self.tl_combo.get()]
         codes = cycle(self.target_codes.values())
         source_text = self.sl_text.get("1.0", END)
         times = int(self.ts_times_spin.get())
         try:
-            ts = Translator()
-            self.thread = threading.Thread(target=nxt, args=(ts, source_text, source_code, target_code, times, codes), kwargs={'bucket': self.bucket}, daemon=True)
-            self.thread.start()
+            process = Process(target=nxt, args=(ts, source_text, source_code, target_code, times, codes), kwargs={'bucket': self.bucket}, daemon=True)
+            process.start()
             self.progress_label.config(text=self.progress_text.format(source=source_code, target=target_code, times=times, progress='0%', status='Running...'))
-            # self.source_code = source_code
-            # self.target_code = target_code
-            # self.times = times
+            self.after(500, self.update_status, process, source_code, target_code, times)
             # translations = ""
             # translations += f"{source_code} -> {code}\n"
             # translations += f"{source_code} -> {target_code}\n"
             # print(translations[:-1])
-            # self.tl_text.delete("1.0", END)
-            # self.tl_text.insert("1.0", source_text)
-            self.after_id = self.after(100, lambda: self.update_status(source_code, target_code, times))
         except ConnectionError as err:
             messagebox.showerror('Connection Error', str(err))
     
-    def update_status(self, source: str, target: str, times: int):
+    def update_status(self, process: Process, source: str, target: str, times: int):
+        update_again = True
         try:
             response: dict[str, str | None] = self.bucket.get_nowait()
             self.progress_label.config(text=self.progress_text.format(source=source, target=target, times=times, progress=response['progress'], status=response['status']))
             if response['status'] == 'Complete!':
-                self.after_cancel(self.after_id)
                 self.tl_text.delete("1.0", END)
                 self.tl_text.insert("1.0", response['text'])
-        except queue.Empty:
+                self.start_button.config(state=NORMAL)
+                update_again = False
+        except Empty:
             pass
+        if update_again:
+            self.after(500, self.update_status, process, source, target, times)
 
     def paste_text(self):
         try:
