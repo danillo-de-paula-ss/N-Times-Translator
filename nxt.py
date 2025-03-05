@@ -1,4 +1,12 @@
 # N-Times Translator
+import importlib.abc
+import importlib.machinery
+import importlib.metadata
+import importlib.readers
+import importlib.resources
+import importlib.simple
+import importlib.util
+import logging.config
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
@@ -7,7 +15,7 @@ from tkinter.constants import *
 import os
 import json
 from PIL import Image, ImageTk
-from utilities import Translator, nxt, import_module
+from utilities import nxt, import_module
 from itertools import cycle
 import pyperclip
 # import threading
@@ -17,6 +25,8 @@ from multiprocess.queues import Empty
 from multiprocess.connection import Connection
 import importlib
 from typing import Callable
+import logging
+from types import ModuleType
 
 class App(tk.Tk):
     def __init__(self, screenName = None, baseName = None, className = "Tk", useTk = True, sync = False, use = None):
@@ -30,9 +40,22 @@ class App(tk.Tk):
         self.sl_names = list(self.source_langs.values())
         self.tl_names = list(self.target_langs.values())
 
+        ## set logger
+        # create logger
+        self.logger = logging.getLogger('main')
+        self.logger.setLevel(logging.DEBUG)
+        # console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG)
+        # formatter
+        console_formatter = logging.Formatter('%(asctime)s - %(levelname)-8s - %(message)s', '%H:%M:%S')
+        console_handler.setFormatter(console_formatter)
+        # add the handlers to logger
+        self.logger.addHandler(console_handler)
+
         # set configs
         ttk.Style().theme_use("clam")
-        ttk.Style().configure('Style1.TButton', font=('Helvetica', 20))
+        ttk.Style().configure('Style1.TButton', font=('Helvetica', 14))
         ttk.Style().configure('Style2.TButton', font=('Helvetica', 22))
         ttk.Style().configure('TSpinbox', borderwidth=1, relief=FLAT, padding=(0, 6), arrowsize=14)
         ttk.Style().configure('TLabel', font=('Helvetica', 12), borderwidth=1, relief=SOLID)
@@ -44,9 +67,8 @@ class App(tk.Tk):
             self.iconphoto(True, self.icon)
         self.geometry('1400x800')
         self.process = None
-        self.import_proc = None
         self.bucket = Queue()
-        # self.atfer_id = ''
+        self.data = {}
         self.progress_text = 'source: {source}, target: {target}, times: {times}, progress: {progress}, status: {status}' + ' ' * 4
 
         # menu
@@ -102,7 +124,7 @@ class App(tk.Tk):
         # source frame config
         # source language label
         self.sl_label = tk.Label(self.sl_frame, text='Source Language', font=('Helvetica', 16, 'bold'))
-        self.sl_label.grid(row=0, column=0, pady=(10, 0), sticky=EW)
+        self.sl_label.grid(row=0, column=0, pady=10, sticky=EW)
 
         # source language combo
         self.sl_combo = ttk.Combobox(self.sl_frame, values=self.sl_names, font=('Helvetica', 12))
@@ -138,13 +160,14 @@ class App(tk.Tk):
         # config source language textbox scrollbars
         self.sl_text_v_scroll.config(command=self.sl_text.yview)
         self.sl_text_h_scroll.config(command=self.sl_text.xview)
+        
+        # switch languages config
+        # switch languages button
+        self.swap_img = ImageTk.PhotoImage(Image.open('buttons/switch.png').resize((40, 40), reducing_gap=1.0))
+        self.swap_language_btn = ttk.Button(self.main_frame, text='Switch Languages', image=self.swap_img, padding=(0, 0), compound=TOP, style='Style1.TButton', command=self.swap_langs)
+        self.swap_language_btn.grid(row=0, column=1, pady=(6, 0), ipadx=10, sticky=NS)
 
         # panel frame config
-        # switch languages button
-        self.swap_img = ImageTk.PhotoImage(Image.open('buttons/switch.png').resize((80, 80), reducing_gap=1.0))
-        self.swap_language_btn = ttk.Button(self.panel_frame, text='Switch Languages', image=self.swap_img, padding=(0, 0), compound=TOP, style='Style1.TButton', command=self.swap_langs)
-        self.swap_language_btn.pack(ipadx=10, ipady=10)
-
         # push element
         self.vpush1 = tk.Text(self.panel_frame, font='_ 1', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9', highlightthickness=0)
         self.vpush1.pack(fill=Y, expand=True)
@@ -177,7 +200,7 @@ class App(tk.Tk):
         # target frame config
         # target language label
         self.tl_label = tk.Label(self.tl_frame, text='Target Language', font=('Helvetica', 16, 'bold'))
-        self.tl_label.grid(row=0, column=0, pady=(10, 0), sticky=EW)
+        self.tl_label.grid(row=0, column=0, pady=10, sticky=EW)
 
         # target language combo
         self.tl_combo = ttk.Combobox(self.tl_frame, values=self.tl_names, font=('Helvetica', 12))
@@ -223,8 +246,20 @@ class App(tk.Tk):
         self.progress_label.pack(fill=X, side=BOTTOM)
 
     def import_module_async(self, module_name: str, timeout: int, callback: Callable):
-        """Importa um módulo em um subprocesso com tempo limite e chama o callback."""
+        # get data and set configs
+        self.logger.debug('Extracting data from sl_text, sl_combo, tl_combo and ts_times_spin fields...')
+        text = self.sl_text.get("1.0", END)
+        source = self.source_codes[self.sl_combo.get()]
+        target = self.target_codes[self.tl_combo.get()]
+        times = int(self.ts_times_spin.get())
+        codes = cycle(self.target_codes.values())
+        self.data = {'text': text, 'source': source, 'target': target, 'times': times, 'codes': codes}
+        self.logger.debug('Data successfully extracted from sl_text, sl_combo, tl_combo and ts_times_spin fields.')
+        self.progress_label.config(text=self.progress_text.format(source=source, target=target, times=times, progress='0%', status='Connecting...'))
         self.start_button.config(state=DISABLED)
+        self.logger.debug('Botão "Start Translation!" desabilitado.')
+        # start process
+        self.logger.debug('Iniciando processo de importação do módulo "translators"')
         parent_conn, child_conn = Pipe()
         process = Process(target=import_module, args=(child_conn, module_name), daemon=True)
         process.start()
@@ -250,40 +285,34 @@ class App(tk.Tk):
         else:
             self.after(1000, self.wait_process, count, timeout, process, parent_conn, callback)
 
-    def on_import_finished(self, module, error, elapsed_time):
+    def on_import_finished(self, module: ModuleType, error: str, elapsed_time: float):
         """Callback chamado quando a importação terminar."""
         if error:
-            # messagebox.showerror("Erro", f"Erro ao importar módulo:\n{error}")
+            messagebox.showerror("Erro", "Não foi possível conectar a internet.")
             print(f"Erro ao importar módulo:\n{error}")
             self.start_button.config(state=NORMAL)
+            self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['target'], progress='0%', status='Stopped!'))
         else:
             # messagebox.showinfo("Sucesso", f"Módulo '{module.__name__}' importado em {elapsed_time:.2f} segundos")
             print(f"Módulo '{module.__name__}' importado em {elapsed_time:.2f} segundos")
             self.start_translation(ts=module)
     
     def start_translation(self, ts):
-        source_code = self.source_codes[self.sl_combo.get()]
-        target_code = self.target_codes[self.tl_combo.get()]
-        codes = cycle(self.target_codes.values())
-        source_text = self.sl_text.get("1.0", END)
-        times = int(self.ts_times_spin.get())
-        try:
-            process = Process(target=nxt, args=(ts, source_text, source_code, target_code, times, codes), kwargs={'bucket': self.bucket}, daemon=True)
-            process.start()
-            self.progress_label.config(text=self.progress_text.format(source=source_code, target=target_code, times=times, progress='0%', status='Running...'))
-            self.after(500, self.update_status, process, source_code, target_code, times)
-            # translations = ""
-            # translations += f"{source_code} -> {code}\n"
-            # translations += f"{source_code} -> {target_code}\n"
-            # print(translations[:-1])
-        except ConnectionError as err:
-            messagebox.showerror('Connection Error', str(err))
+        # start process
+        process = Process(target=nxt, args=(ts, *self.data.values()), kwargs={'bucket': self.bucket}, daemon=True)
+        process.start()
+        self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['target'], progress='0%', status='Running...'))
+        self.after(500, self.update_status, process)
+        # translations = ""
+        # translations += f"{source_code} -> {code}\n"
+        # translations += f"{source_code} -> {target_code}\n"
+        # print(translations[:-1])
     
-    def update_status(self, process: Process, source: str, target: str, times: int):
+    def update_status(self, process: Process):
         update_again = True
         try:
             response: dict[str, str | None] = self.bucket.get_nowait()
-            self.progress_label.config(text=self.progress_text.format(source=source, target=target, times=times, progress=response['progress'], status=response['status']))
+            self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['target'], progress=response['progress'], status=response['status']))
             if response['status'] == 'Complete!':
                 self.tl_text.delete("1.0", END)
                 self.tl_text.insert("1.0", response['text'])
@@ -292,7 +321,7 @@ class App(tk.Tk):
         except Empty:
             pass
         if update_again:
-            self.after(500, self.update_status, process, source, target, times)
+            self.after(500, self.update_status, process)
 
     def paste_text(self):
         try:
