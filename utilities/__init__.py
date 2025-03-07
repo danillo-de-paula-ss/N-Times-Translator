@@ -1,16 +1,23 @@
 from typing import Iterator, Any
 from queue import Queue
 import traceback
+from multiprocessing import Process, Pipe
 from multiprocessing.connection import Connection
 import time
 import importlib
+
+def import_module_async(module_name: str):
+    # start process
+    parent_conn, child_conn = Pipe()
+    process = Process(target=import_module, args=(child_conn, module_name), daemon=True)
+    process.start()
+    return process, parent_conn
 
 def import_module(pipe_conn: Connection, module_name: str):
     """Tenta importar um módulo e envia o resultado via Pipe."""
     try:
         start_time = time.time()
         module = importlib.import_module(module_name)
-        print(type(module))
         elapsed_time = time.time() - start_time
         pipe_conn.send((True, module.__name__, elapsed_time))  # Envia o nome do módulo e o tempo gasto
     except Exception as e:

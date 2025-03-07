@@ -15,7 +15,7 @@ from tkinter.constants import *
 import os
 import json
 from PIL import Image, ImageTk
-from utilities import nxt, import_module
+from utilities import nxt, import_module, import_module_async
 from itertools import cycle
 import pyperclip
 # import threading
@@ -53,12 +53,16 @@ class App(tk.Tk):
         # add the handlers to logger
         self.logger.addHandler(console_handler)
 
+        # config style
+        s = ttk.Style()
+        s.theme_use("clam")
+        s.configure('Style1.TButton', font=('Helvetica', 14))
+        s.configure('Style2.TButton', font=('Helvetica', 22))
+        s.configure('TSpinbox', borderwidth=1, relief=FLAT, padding=(0, 6), arrowsize=14)
+        s.configure('TLabel', font=('Helvetica', 12), borderwidth=1, relief=SOLID)
+        s.configure('TProgressbar', foreground='green', background='green')
+
         # set configs
-        ttk.Style().theme_use("clam")
-        ttk.Style().configure('Style1.TButton', font=('Helvetica', 14))
-        ttk.Style().configure('Style2.TButton', font=('Helvetica', 22))
-        ttk.Style().configure('TSpinbox', borderwidth=1, relief=FLAT, padding=(0, 6), arrowsize=14)
-        ttk.Style().configure('TLabel', font=('Helvetica', 12), borderwidth=1, relief=SOLID)
         self.title('N-Times Translator')
         if os.name == 'nt':
             self.iconbitmap('nxt.ico')
@@ -79,9 +83,9 @@ class App(tk.Tk):
         # file menu
         self.file_menu = tk.Menu(self.menu, tearoff=False)
         self.menu.add_cascade(label='File', menu=self.file_menu)
-        self.file_menu.add_command(label='Open File')
+        self.file_menu.add_command(label='Open File', command=self.open_text_file)
         self.file_menu.add_command(label='Save')
-        self.file_menu.add_command(label='Save As')
+        self.file_menu.add_command(label='Save As', command=self.save_text_file)
         self.file_menu.add_separator()
         self.file_menu.add_command(label='Exit', command=self.quit)
 
@@ -93,7 +97,7 @@ class App(tk.Tk):
         self.edit_menu.add_separator()
         self.edit_menu.add_command(label='Cut')
         self.edit_menu.add_command(label='Copy')
-        self.edit_menu.add_command(label='Paste')
+        self.edit_menu.add_command(label='Paste', command=self.paste_text)
 
         # about menu
         self.help_menu = tk.Menu(self.menu, tearoff=False)
@@ -190,7 +194,7 @@ class App(tk.Tk):
         self.ts_times_label_2.grid(row=0, column=2, ipadx=6, ipady=6)
 
         # start button
-        self.start_button = ttk.Button(self.panel_frame, text='Start Translation!', padding=(0, 0), style='Style2.TButton', command=lambda: self.import_module_async('translators', 5, self.on_import_finished))
+        self.start_button = ttk.Button(self.panel_frame, text='Translate!', padding=(0, 0), width=14, style='Style2.TButton', command=self.start)
         self.start_button.pack(pady=(10, 0), ipadx=8, ipady=8)
 
         # push element
@@ -238,14 +242,16 @@ class App(tk.Tk):
         self.tl_text_h_scroll.config(command=self.tl_text.xview)
 
         # progress bar
-        self.progress_bar = ttk.Progressbar(self)
+        self.progress = tk.IntVar(self, value=0)
+        self.progress_bar = ttk.Progressbar(self, style='TProgressbar', variable=self.progress)
         self.progress_bar.pack(fill=X, pady=(10, 0))
 
         # progress label
         self.progress_label = tk.Label(text=self.progress_text.format(source='auto', target='en', times=4, progress='0%', status='Stopped!'), anchor=E, bd=1, relief=SUNKEN)
         self.progress_label.pack(fill=X, side=BOTTOM)
 
-    def import_module_async(self, module_name: str, timeout: int, callback: Callable):
+    def start(self):
+        self.logger.info('Connecting to the internet...')
         # get data and set configs
         self.logger.debug('Extracting data from sl_text, sl_combo, tl_combo and ts_times_spin fields...')
         text = self.sl_text.get("1.0", END)
@@ -255,15 +261,14 @@ class App(tk.Tk):
         codes = cycle(self.target_codes.values())
         self.data = {'text': text, 'source': source, 'target': target, 'times': times, 'codes': codes}
         self.logger.debug('Data successfully extracted from sl_text, sl_combo, tl_combo and ts_times_spin fields.')
+        self.progress.set(0)
         self.progress_label.config(text=self.progress_text.format(source=source, target=target, times=times, progress='0%', status='Connecting...'))
         self.start_button.config(state=DISABLED)
-        self.logger.debug('Botão "Start Translation!" desabilitado.')
-        # start process
-        self.logger.debug('Iniciando processo de importação do módulo "translators"')
-        parent_conn, child_conn = Pipe()
-        process = Process(target=import_module, args=(child_conn, module_name), daemon=True)
-        process.start()
-        self.after(1000, self.wait_process, 0, timeout, process, parent_conn, callback)
+        self.logger.debug('"Translate!" button disabled.')
+        # import module
+        self.logger.debug('Importing "translators" module...')
+        process, parent_conn = import_module_async('translators')
+        self.after(1000, self.wait_process, 0, 10, process, parent_conn, self.on_import_finished)
 
     def wait_process(self, count: int, timeout: int, process: Process, parent_conn: Connection, callback: Callable):
         count += 1
@@ -271,36 +276,38 @@ class App(tk.Tk):
             if process.is_alive():
                 process.terminate()
                 process.join()
-                self.after(0, callback, None, f"Tempo limite excedido ({timeout}s)", None)
+                self.after(0, callback, None, f"Timeout ({timeout}s)", None)
                 return
 
-            if parent_conn.poll():  # Se há dados no pipe
+            if parent_conn.poll():
                 success, result, elapsed_time = parent_conn.recv()
                 if success:
                     self.after(0, callback, importlib.import_module(result), None, elapsed_time)
                 else:
                     self.after(0, callback, None, result, None)
             else:
-                self.after(0, callback, None, "Falha desconhecida ao importar o módulo.", None)
+                self.after(0, callback, None, "Unknown failure while importing module.", None)
         else:
             self.after(1000, self.wait_process, count, timeout, process, parent_conn, callback)
 
     def on_import_finished(self, module: ModuleType, error: str, elapsed_time: float):
-        """Callback chamado quando a importação terminar."""
         if error:
-            messagebox.showerror("Erro", "Não foi possível conectar a internet.")
-            print(f"Erro ao importar módulo:\n{error}")
+            self.logger.debug(f"Error importing module:\n{error}")
+            self.logger.error('Unable to connect to the Internet.')
+            messagebox.showerror("Error", "Unable to connect to the Internet.")
             self.start_button.config(state=NORMAL)
             self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['target'], progress='0%', status='Stopped!'))
         else:
-            # messagebox.showinfo("Sucesso", f"Módulo '{module.__name__}' importado em {elapsed_time:.2f} segundos")
-            print(f"Módulo '{module.__name__}' importado em {elapsed_time:.2f} segundos")
-            self.start_translation(ts=module)
+            self.logger.debug(f"\"{module.__name__}\" module imported in {elapsed_time:.2f} seconds.")
+            self.logger.info('Internet connected.')
+            self.translate(ts=module)
     
-    def start_translation(self, ts):
+    def translate(self, ts):
         # start process
+        self.logger.info(f'Translating the text {self.data['times']} times...')
         process = Process(target=nxt, args=(ts, *self.data.values()), kwargs={'bucket': self.bucket}, daemon=True)
         process.start()
+        self.progress.set(0)
         self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['target'], progress='0%', status='Running...'))
         self.after(500, self.update_status, process)
         # translations = ""
@@ -312,11 +319,17 @@ class App(tk.Tk):
         update_again = True
         try:
             response: dict[str, str | None] = self.bucket.get_nowait()
+            self.logger.info(f'Progress: {response['progress']:>4}    Status: {response['status']}')
+            self.progress.set(int(response['progress'][:-1]))
             self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['target'], progress=response['progress'], status=response['status']))
             if response['status'] == 'Complete!':
+                self.logger.info('Process completed!')
+                self.logger.debug('Sending result to tl_text field...')
                 self.tl_text.delete("1.0", END)
                 self.tl_text.insert("1.0", response['text'])
+                self.logger.debug('Result sent successfully!')
                 self.start_button.config(state=NORMAL)
+                self.logger.debug('"Translate!" button enabled.')
                 update_again = False
         except Empty:
             pass
@@ -325,21 +338,29 @@ class App(tk.Tk):
 
     def paste_text(self):
         try:
+            self.logger.info('Pasting text...')
             text = pyperclip.paste()
             self.sl_text.delete('1.0', END)
             self.sl_text.insert('1.0', text)
+            self.logger.info('Text pasted successfully!')
         except pyperclip.PyperclipException as err:
+            self.logger.error('Copy/paste mechanism missing')
             messagebox.showerror('Copy/paste mechanism missing', str(err))
     
     def open_text_file(self):
+        self.logger.info('Opening text file and getting content...')
         filename = filedialog.askopenfilename(defaultextension='.txt', filetypes=(('Text Files', '.txt',),), initialdir='/home/danillo/Documentos', title='Open text file')
         if filename:
             with open(filename, 'rt', encoding='utf-8') as file:
                 text = file.read()
             self.sl_text.delete('1.0', END)
             self.sl_text.insert('1.0', text)
+            self.logger.info('Text file content obtained successfully!')
+        else:
+            self.logger.warning('No text file was opened.')
         
     def swap_langs(self):
+        self.logger.info('Swapping languages...')
         sl_lang = self.sl_combo.get()
         if sl_lang != self.source_langs['auto']:
             tl_lang = self.tl_combo.get()
@@ -347,19 +368,29 @@ class App(tk.Tk):
             self.tl_combo.delete(0, END)
             self.sl_combo.insert(0, tl_lang)
             self.tl_combo.insert(0, sl_lang)
+            self.logger.info('Languages swapped successfully!')
+        else:
+            self.logger.warning('You cannot swap languages.')
 
     def copy_text(self):
         try:
+            self.logger.info('Copying text...')
             text = self.tl_text.get('1.0', END)
             pyperclip.copy(text)
+            self.logger.info('Text copied successfully!')
         except pyperclip.PyperclipException as err:
+            self.logger.error('Copy/paste mechanism missing')
             messagebox.showerror('Copy/paste mechanism missing', str(err))
     
     def save_text_file(self):
+        self.logger.info('Opening directory and saving content into a text file...')
         filename = filedialog.asksaveasfilename(defaultextension='.txt', filetypes=(('Text Files', '.txt',),), initialdir='/home/danillo/Documentos', initialfile='output.txt', title='Save text file')
         if filename:
             with open(filename, 'wt', encoding='utf-8') as file:
                 file.write(self.tl_text.get('1.0', END))
+            self.logger.info('Text file saved successfully!')
+        else:
+            self.logger.warning('No text file was opened.')
 
 if __name__ == '__main__':
     app = App()
