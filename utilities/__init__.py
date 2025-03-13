@@ -1,37 +1,44 @@
-from typing import Iterator, Any
+from typing import Iterator, Callable
 from queue import Queue
-import traceback
+import subprocess
+from requests.exceptions import ConnectionError
 from multiprocessing import Process, Pipe
 from multiprocessing.connection import Connection
 import time
-import importlib
+import os
 
-def import_module_async(module_name: str):
+os.environ["translators_default_region"] = "EN"
+import translators
+
+def nxt(text: str, source: str, target: str, times: int, lang_codes: Iterator[str], *, bucket: Queue) -> str:
+    for i in range(times):
+        try:
+            if i < times - 1:
+                code = next(lang_codes)
+                text = translators.translate_text(text, 'google', source, code)
+                source = code
+                bucket.put_nowait({'text': None, 'progress': f'{((i + 1) / times) * 100:.0f}%', 'status': 'Running...'})
+            else:
+                text = translators.translate_text(text, 'google', source, target)
+                bucket.put_nowait({'text': text, 'progress': f'{((i + 1) / times) * 100:.0f}%', 'status': 'Complete!'})
+        except ConnectionError:
+            bucket.put_nowait({'text': None, 'progress': f'{((i) / times) * 100:.0f}%', 'status': 'Stopped!', 'is_error': True})
+
+def function_async(func: Callable):
     # start process
     parent_conn, child_conn = Pipe()
-    process = Process(target=import_module, args=(child_conn, module_name), daemon=True)
+    process = Process(target=func, args=(child_conn,), daemon=True)
     process.start()
     return process, parent_conn
 
-def import_module(pipe_conn: Connection, module_name: str):
-    """Tenta importar um módulo e envia o resultado via Pipe."""
+def check_internet_connection(pipe_conn: Connection):
     try:
         start_time = time.time()
-        module = importlib.import_module(module_name)
+        time.sleep(10)
+        subprocess.check_output(["ping", "-c", "1", "8.8.8.8"], stderr=subprocess.DEVNULL)
         elapsed_time = time.time() - start_time
-        pipe_conn.send((True, module.__name__, elapsed_time))  # Envia o nome do módulo e o tempo gasto
-    except Exception as e:
-        pipe_conn.send((False, str(e), None))  # Envia erro
+        pipe_conn.send((True, elapsed_time))
+    except subprocess.CalledProcessError:
+        pipe_conn.send((False, None))
     finally:
         pipe_conn.close()
-
-def nxt(translator, text: str, source: str, target: str, times: int, lang_codes: Iterator[str], *, bucket: Queue) -> str:
-    for i in range(times):
-        if i < times - 1:
-            code = next(lang_codes)
-            text = translator.translate_text(text, 'google', source, code)
-            source = code
-            bucket.put_nowait({'text': None, 'progress': f'{((i + 1) / times) * 100:.0f}%', 'status': 'Running...'})
-        else:
-            text = translator.translate_text(text, 'google', source, target)
-            bucket.put_nowait({'text': text, 'progress': f'{((i + 1) / times) * 100:.0f}%', 'status': 'Complete!'})
