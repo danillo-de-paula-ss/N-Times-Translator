@@ -26,9 +26,10 @@ import importlib
 import logging
 from typing import Callable
 import getpass
+from contextlib import suppress
 
 def setup_text_widget(text_widget: tk.Text):
-    def redo(event):
+    def redo(event: tk.Event):
         text_widget.event_generate("<<Redo>>")
         return "break"
 
@@ -40,21 +41,25 @@ class CTextbox:
     
     def edit_undo(self):
         if self.textbox is not None:
-            self.textbox.edit_undo()
+            with suppress(tk.TclError):
+                self.textbox.edit_undo()
     
     def edit_redo(self):
         if self.textbox is not None:
-            self.textbox.edit_redo()
+            with suppress(tk.TclError):
+                self.textbox.edit_redo()
     
     def cut(self):
         if self.textbox is not None:
             self.copy()
-            self.textbox.delete("sel.first", "sel.last")
+            with suppress(tk.TclError):
+                self.textbox.delete("sel.first", "sel.last")
 
     def copy(self):
         if self.textbox is not None:
-            text = self.textbox.get("sel.first", "sel.last")
-            pyperclip.copy(text)
+            with suppress(tk.TclError):
+                text = self.textbox.get("sel.first", "sel.last")
+                pyperclip.copy(text)
     
     def paste(self):
         if self.textbox is not None:
@@ -349,7 +354,7 @@ class App(tk.Tk):
             messagebox.showerror("Error", "Unable to connect to the Internet.")
             self.start_button.config(state=NORMAL)
             self.logger.debug('"Translate!" button enabled.')
-            self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['target'], progress='0%', status='Stopped!'))
+            self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['times'], progress='0%', status='Stopped!'))
         else:
             self.logger.debug(f"Internet connection checked in {elapsed_time:.2f} seconds.")
             self.logger.info('Internet connected!')
@@ -362,7 +367,7 @@ class App(tk.Tk):
         process.start()
         # set progress bar
         self.progress.set(0)
-        self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['target'], progress='0%', status='Running...'))
+        self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['times'], progress='0%', status='Running...'))
         self.after(500, self.update_status, process)
     
     def update_status(self, process: Process):
@@ -371,7 +376,7 @@ class App(tk.Tk):
             response: dict[str, str | None] = self.bucket.get_nowait()
             self.logger.info(f'Progress: {response['progress']:>4}    Status: {response['status']}')
             self.progress.set(int(response['progress'][:-1]))
-            self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['target'], progress=response['progress'], status=response['status']))
+            self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['times'], progress=response['progress'], status=response['status']))
             if response['status'] == 'Complete!':
                 self.logger.info('Process completed!')
                 self.logger.debug('Sending result to tl_text field...')
