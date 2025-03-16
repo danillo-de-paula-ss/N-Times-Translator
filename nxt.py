@@ -20,6 +20,7 @@ import getpass
 from contextlib import suppress
 import sys
 from datetime import datetime
+import webbrowser
 
 def setup_text_widget(text_widget: tk.Text):
     def redo(event: tk.Event):
@@ -192,7 +193,7 @@ class App(tk.Tk):
 
         # panel frame config
         # push element
-        self.vpush1 = tk.Text(self.panel_frame, font='_ 1', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9', highlightthickness=0)
+        self.vpush1 = tk.Text(self.panel_frame, font='_ 1', cursor='', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9', highlightthickness=0)
         self.vpush1.pack(fill=Y, expand=True)
 
         # translation times frame
@@ -217,7 +218,7 @@ class App(tk.Tk):
         self.start_button.pack(pady=(10, 0), ipadx=8, ipady=8)
 
         # push element
-        self.vpush2 = tk.Text(self.panel_frame, font='_ 1', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9', highlightthickness=0)
+        self.vpush2 = tk.Text(self.panel_frame, font='_ 1', cursor='', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9', highlightthickness=0)
         self.vpush2.pack(fill=Y, expand=True)
 
         # target frame config
@@ -479,20 +480,63 @@ class App(tk.Tk):
             self.logger.warning('No text file was chosen.')
 
     def about(self):
+        def close_window():
+            top.grab_release()
+            top.destroy()
+
         top = tk.Toplevel(self)
-        top.title('About')
+        top.title('About N-Times Translator')
+        top.resizable(False, False)
+        top.transient(self)
         if os.name == 'nt':
             top.iconbitmap('nxt.ico')
         else:
             top.iconphoto(True, self.icon)
         width = 400
-        height = 600
+        height = 300
         monitor_width = self.winfo_width()
         monitor_height = self.winfo_height()
         top.geometry(f'{width}x{height}+{self.winfo_x() + ((monitor_width - width) // 2)}+{self.winfo_y() + ((monitor_height - height) // 2)}')
 
-        label = tk.Label(top, text='')
+        # frame
+        frame = tk.Frame(top)
+        frame.pack(pady=20)
 
+        # icon
+        icon_img = ImageTk.PhotoImage(Image.open('nxt.png').resize((60, 60), reducing_gap=1.0))
+        icon = tk.Label(frame, image=icon_img)
+        icon.grid(row=0, column=0)
+
+        # title
+        title = tk.Label(frame, text='N-Times Translator', font=('Helvetica', 20, 'bold'))
+        title.grid(row=0, column=1, pady=(8, 0), padx=(8, 0))
+
+        # description
+        description_text = \
+'''N-Times Translator is a free and open source program
+that takes a text in any language, sends it through
+Google Translate a bunch of times, and then outputs
+it in any language.'''
+        description = tk.Label(top, text=description_text, justify=LEFT)
+        description.pack()
+
+        # second frame
+        second_frame = tk.Frame(top)
+        second_frame.pack(fill=X, pady=(20, 0), padx=(32, 0))
+
+        # dev credit
+        dev_title1 = tk.Label(second_frame, text='Developed by', font=('Helvetica', 10, 'bold'), justify=LEFT)
+        dev_title1.grid(row=0, column=0, sticky=W)
+        dev_title2 = tk.Label(second_frame, text='Danillo de Paula Silveira Sousa', font=('Helvetica', 10, 'underline'), fg='blue', cursor='hand2', justify=LEFT)
+        dev_title2.grid(row=0, column=1)
+        dev_title2.bind('<Button-1>', lambda e: webbrowser.open('https://github.com/danillo-de-paula-ss'))
+        ToolTip(dev_title2, 'Click to open my GitHub', delay=0.5)
+
+        # button
+        ok_btn = tk.Button(top, text='OK', width=8, command=close_window)
+        ok_btn.pack(side=BOTTOM, pady=(0, 10))
+
+        top.grab_set()
         top.mainloop()
 
 if __name__ == '__main__':
