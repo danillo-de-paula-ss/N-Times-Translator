@@ -178,8 +178,8 @@ class App(tk.Tk):
         self.sl_text = tk.Text(self.sl_text_frame, width=50, height=20, font=('Helvetica', 12), yscrollcommand=self.sl_text_v_scroll.set, xscrollcommand=self.sl_text_h_scroll.set, wrap=NONE, undo=True)
         self.sl_text.pack(fill=BOTH, expand=True)
         setup_text_widget(self.sl_text)
-        self.sl_text.bind('<Key>', self.on_key)
-        self.sl_text.bind('<Button-1>', self.on_key)
+        self.sl_text.bind('<Key>', self._on_key)
+        self.sl_text.bind('<Button-1>', self._on_key)
 
         # config source language textbox scrollbars
         self.sl_text_v_scroll.config(command=self.sl_text.yview)
@@ -205,7 +205,7 @@ class App(tk.Tk):
         self.ts_times_label_1.grid(row=0, column=0, ipadx=6, ipady=6)
 
         # translation times spin
-        self.ts_times_spin = ttk.Spinbox(self.ts_times_frame, from_=1, to=1000, font=('Helvetica', 12), width=10)
+        self.ts_times_spin = ttk.Spinbox(self.ts_times_frame, from_=1, to=1000, font=('Helvetica', 12), width=10, validate="key", validatecommand=(self.register(self._validate), "%P"))
         self.ts_times_spin.set(4)
         self.ts_times_spin.grid(row=0, column=1)
 
@@ -259,8 +259,8 @@ class App(tk.Tk):
         self.tl_text = tk.Text(self.tl_text_frame, width=50, height=20, font=('Helvetica', 12), yscrollcommand=self.tl_text_v_scroll.set, xscrollcommand=self.tl_text_h_scroll.set, wrap=NONE, undo=True)
         self.tl_text.pack(fill=BOTH, expand=True)
         setup_text_widget(self.tl_text)
-        self.tl_text.bind('<Key>', self.on_key)
-        self.tl_text.bind('<Button-1>', self.on_key)
+        self.tl_text.bind('<Key>', self._on_key)
+        self.tl_text.bind('<Button-1>', self._on_key)
 
         # config target language textbox scrollbars
         self.tl_text_v_scroll.config(command=self.tl_text.yview)
@@ -304,7 +304,10 @@ class App(tk.Tk):
         self.menu.add_cascade(label='Help', menu=self.help_menu)
         self.help_menu.add_command(label='About', command=self.about)
 
-    def on_key(self, event: tk.Event):
+    def _validate(self, P):
+        return P.isdigit()
+
+    def _on_key(self, event: tk.Event):
         if isinstance(event.widget, tk.Text):
             self.current_textbox.textbox = event.widget
 
