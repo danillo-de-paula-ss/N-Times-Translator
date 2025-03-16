@@ -40,7 +40,7 @@ Now just wait for the program to finish making all the translations and then it 
 ## 📋 To Do
 * Add functionality to randomize languages ​​in the translation process.
 
-## Attribution
+## 🏆️ Attribution
 * [Paste icons created by Freepik - Flaticon](https://www.flaticon.com/free-icons/paste)
 * [Open source icons created by Freepik - Flaticon](https://www.flaticon.com/free-icons/open-source)
 * [Copy icons created by Ongicon - Flaticon](https://www.flaticon.com/free-icons/copy)
