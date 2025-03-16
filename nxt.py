@@ -1,12 +1,4 @@
 # N-Times Translator
-import importlib.abc
-import importlib.machinery
-import importlib.metadata
-import importlib.readers
-import importlib.resources
-import importlib.simple
-import importlib.util
-import logging.config
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
@@ -19,14 +11,15 @@ from PIL import Image, ImageTk
 from utilities import nxt, check_internet_connection, function_async
 from itertools import cycle
 import pyperclip
-from multiprocessing import Process, Queue, Pipe
+from multiprocessing import Process, Queue
 from multiprocessing.connection import Connection
 from queue import Empty
-import importlib
 import logging
 from typing import Callable
 import getpass
 from contextlib import suppress
+import sys
+from datetime import datetime
 
 def setup_text_widget(text_widget: tk.Text):
     def redo(event: tk.Event):
@@ -34,6 +27,16 @@ def setup_text_widget(text_widget: tk.Text):
         return "break"
 
     text_widget.bind("<Control-y>", redo)
+
+def find_data_paths(*pathnames: str) -> str:
+    if getattr(sys, "frozen", False):
+        # the application is frozen
+        datadir = os.path.dirname(sys.executable)
+    else:
+        # the application is not frozen
+        # change this bit to match where you store your data files:
+        datadir = os.path.dirname(__file__)
+    return os.path.join(datadir, *pathnames)
 
 class CTextbox:
     def __init__(self):
@@ -264,7 +267,7 @@ class App(tk.Tk):
 
         # progress bar
         self.progress = tk.IntVar(self, value=0)
-        self.progress_bar = ttk.Progressbar(self, style='TProgressbar', variable=self.progress)
+        self.progress_bar = ttk.Progressbar(self, style='TProgressbar', variable=self.progress, maximum=1000)
         self.progress_bar.pack(fill=X, pady=(10, 0))
 
         # progress label
@@ -298,7 +301,7 @@ class App(tk.Tk):
         # about menu
         self.help_menu = tk.Menu(self.menu, tearoff=False)
         self.menu.add_cascade(label='Help', menu=self.help_menu)
-        self.help_menu.add_command(label='About')
+        self.help_menu.add_command(label='About', command=self.about)
 
     def on_key(self, event: tk.Event):
         if isinstance(event.widget, tk.Text):
@@ -321,7 +324,7 @@ class App(tk.Tk):
             self.logger.debug('Data successfully extracted from sl_text, sl_combo, tl_combo and ts_times_spin fields.')
             # set progress bar
             self.progress.set(0)
-            self.progress_label.config(text=self.progress_text.format(source=source, target=target, times=times, progress='0%', status='Connecting...'))
+            self.progress_label.config(text=self.progress_text.format(source=source, target=target, times=times, progress='0.00%', status='Connecting...'))
             # connect to the internet
             self.logger.info('Connecting to the internet...')
             process, parent_conn = function_async(check_internet_connection)
@@ -354,7 +357,7 @@ class App(tk.Tk):
             messagebox.showerror("Error", "Unable to connect to the Internet.")
             self.start_button.config(state=NORMAL)
             self.logger.debug('"Translate!" button enabled.')
-            self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['times'], progress='0%', status='Stopped!'))
+            self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['times'], progress='0.00%', status='Stopped!'))
         else:
             self.logger.debug(f"Internet connection checked in {elapsed_time:.2f} seconds.")
             self.logger.info('Internet connected!')
@@ -367,15 +370,15 @@ class App(tk.Tk):
         process.start()
         # set progress bar
         self.progress.set(0)
-        self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['times'], progress='0%', status='Running...'))
+        self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['times'], progress='0.00%', status='Running...'))
         self.after(500, self.update_status, process)
     
     def update_status(self, process: Process):
         update_again = True
         try:
             response: dict[str, str | None] = self.bucket.get_nowait()
-            self.logger.info(f'Progress: {response['progress']:>4}    Status: {response['status']}')
-            self.progress.set(int(response['progress'][:-1]))
+            self.logger.info(f'Progress: {response['progress']:>7}    Status: {response['status']}')
+            self.progress.set(int(float(response['progress'][:-1]) * 10))
             self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['times'], progress=response['progress'], status=response['status']))
             if response['status'] == 'Complete!':
                 self.logger.info('Process completed!')
@@ -389,8 +392,18 @@ class App(tk.Tk):
             elif response['status'] == 'Stopped!':
                 self.logger.info('Process stopped!')
                 if response.get('is_error', False):
-                    self.logger.error('Unable to connect to the Internet.')
-                    messagebox.showerror("Error", "Unable to connect to the Internet.")
+                    if response.get('unusual_error', False):
+                        crash_folder = find_data_paths('crashes')
+                        if not os.path.exists(crash_folder):
+                            os.makedirs(crash_folder, exist_ok=True)
+                        filename = f'crash-{datetime.now().strftime('%Y%m%d%H%M%S')}.txt'
+                        with open(os.path.join(crash_folder, filename), 'wt', encoding='utf-8') as file:
+                            file.write(response['unusual_error'])
+                        self.logger.critical(f'Unknown error! Check the "{filename}" file for more details.')
+                        messagebox.showerror("Error", f'Unknown error! Check the "{filename}" file for more details.')
+                    else:
+                        self.logger.error('Unable to connect to the Internet.')
+                        messagebox.showerror("Error", "Unable to connect to the Internet.")
                 self.start_button.config(state=NORMAL)
                 self.logger.debug('"Translate!" button enabled.')
                 update_again = False
@@ -464,6 +477,23 @@ class App(tk.Tk):
             self.logger.info('Text file saved successfully!')
         else:
             self.logger.warning('No text file was chosen.')
+
+    def about(self):
+        top = tk.Toplevel(self)
+        top.title('About')
+        if os.name == 'nt':
+            top.iconbitmap('nxt.ico')
+        else:
+            top.iconphoto(True, self.icon)
+        width = 400
+        height = 600
+        monitor_width = self.winfo_width()
+        monitor_height = self.winfo_height()
+        top.geometry(f'{width}x{height}+{self.winfo_x() + ((monitor_width - width) // 2)}+{self.winfo_y() + ((monitor_height - height) // 2)}')
+
+        label = tk.Label(top, text='')
+
+        top.mainloop()
 
 if __name__ == '__main__':
     app = App()

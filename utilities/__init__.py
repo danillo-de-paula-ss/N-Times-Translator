@@ -11,18 +11,20 @@ os.environ["translators_default_region"] = "EN"
 import translators
 
 def nxt(text: str, source: str, target: str, times: int, lang_codes: Iterator[str], *, bucket: Queue) -> str:
-    for i in range(times):
-        try:
+    try:
+        for i in range(times):
             if i < times - 1:
                 code = next(lang_codes)
                 text = translators.translate_text(text, 'google', source, code)
                 source = code
-                bucket.put_nowait({'text': None, 'progress': f'{((i + 1) / times) * 100:.0f}%', 'status': 'Running...'})
+                bucket.put_nowait({'text': text, 'progress': f'{((i + 1) / times) * 100:.2f}%', 'status': 'Running...'})
             else:
                 text = translators.translate_text(text, 'google', source, target)
-                bucket.put_nowait({'text': text, 'progress': f'{((i + 1) / times) * 100:.0f}%', 'status': 'Complete!'})
-        except ConnectionError:
-            bucket.put_nowait({'text': None, 'progress': f'{((i) / times) * 100:.0f}%', 'status': 'Stopped!', 'is_error': True})
+                bucket.put_nowait({'text': text, 'progress': f'{((i + 1) / times) * 100:.2f}%', 'status': 'Complete!'})
+    except ConnectionError:
+        bucket.put_nowait({'text': None, 'progress': f'{((i) / times) * 100:.2f}%', 'status': 'Stopped!', 'is_error': True})
+    except Exception as err:
+        bucket.put_nowait({'text': None, 'progress': f'{((i) / times) * 100:.2f}%', 'status': 'Stopped!', 'is_error': True, 'unusual_error': str(err)})
 
 def function_async(func: Callable):
     # start process
