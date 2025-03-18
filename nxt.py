@@ -105,6 +105,9 @@ class App(tk.Tk):
         s.map('TCombobox', fieldbackground=[('readonly','white')])
 
         # set configs
+        bg_color = 'lightgray'
+        active_bg_color = 'blue'
+        active_fg_color = 'white'
         self.title('N-Times Translator')
         if os.name == 'nt':
             self.iconbitmap('nxt.ico')
@@ -112,6 +115,7 @@ class App(tk.Tk):
             self.icon = tk.PhotoImage(file='nxt.png')
             self.iconphoto(True, self.icon)
         self.geometry('1400x800')
+        self.config(bg=bg_color)
         self.filename = ""
         self.current_textbox = CTextbox()
         self.process = None
@@ -120,29 +124,29 @@ class App(tk.Tk):
         self.progress_text = 'source: {source}, target: {target}, times: {times}, progress: {progress}, status: {status}' + ' ' * 4
 
         # main frame
-        self.main_frame = tk.Frame(self)
+        self.main_frame = tk.Frame(self, bg=bg_color)
         self.main_frame.pack(fill=BOTH, expand=True, padx=10)
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(2, weight=1)
         self.main_frame.grid_rowconfigure(1, weight=1)
 
         # source frame
-        self.sl_frame = tk.Frame(self.main_frame)
+        self.sl_frame = tk.Frame(self.main_frame, bg=bg_color)
         self.sl_frame.grid(row=0, column=0, sticky=EW, padx=(0, 5))
         self.sl_frame.grid_columnconfigure(0, weight=1)
 
         # panel frame
-        self.panel_frame = tk.Frame(self.main_frame)
+        self.panel_frame = tk.Frame(self.main_frame, bg=bg_color)
         self.panel_frame.grid(row=1, column=1, sticky=NS)
 
         # target frame
-        self.tl_frame = tk.Frame(self.main_frame)
+        self.tl_frame = tk.Frame(self.main_frame, bg=bg_color)
         self.tl_frame.grid(row=0, column=2, sticky=EW, padx=(5, 0))
         self.tl_frame.grid_columnconfigure(0, weight=1)
         
         # source frame config
         # source language label
-        self.sl_label = tk.Label(self.sl_frame, text='Source Language', font=('Helvetica', 16, 'bold'))
+        self.sl_label = tk.Label(self.sl_frame, text='Source Language', font=('Helvetica', 16, 'bold'), bg=bg_color)
         self.sl_label.grid(row=0, column=0, pady=10, sticky=EW)
 
         # source language combo
@@ -193,7 +197,7 @@ class App(tk.Tk):
 
         # panel frame config
         # push element
-        self.vpush1 = tk.Text(self.panel_frame, font='_ 1', cursor='', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9', highlightthickness=0)
+        self.vpush1 = tk.Text(self.panel_frame, font='_ 1', cursor='', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg=bg_color, highlightthickness=0)
         self.vpush1.pack(fill=Y, expand=True)
 
         # translation times frame
@@ -218,12 +222,12 @@ class App(tk.Tk):
         self.start_button.pack(pady=(10, 0), ipadx=8, ipady=8)
 
         # push element
-        self.vpush2 = tk.Text(self.panel_frame, font='_ 1', cursor='', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg='#d9d9d9', highlightthickness=0)
+        self.vpush2 = tk.Text(self.panel_frame, font='_ 1', cursor='', bd=0, padx=0, pady=0, width=0, state=DISABLED, bg=bg_color, highlightthickness=0)
         self.vpush2.pack(fill=Y, expand=True)
 
         # target frame config
         # target language label
-        self.tl_label = tk.Label(self.tl_frame, text='Target Language', font=('Helvetica', 16, 'bold'))
+        self.tl_label = tk.Label(self.tl_frame, text='Target Language', font=('Helvetica', 16, 'bold'), bg=bg_color)
         self.tl_label.grid(row=0, column=0, pady=10, sticky=EW)
 
         # target language combo
@@ -272,16 +276,16 @@ class App(tk.Tk):
         self.progress_bar.pack(fill=X, pady=(10, 0))
 
         # progress label
-        self.progress_label = tk.Label(text=self.progress_text.format(source='auto', target='en', times=4, progress='0%', status='Stopped!'), anchor=E, bd=1, relief=SUNKEN)
+        self.progress_label = tk.Label(text=self.progress_text.format(source='auto', target='en', times=4, progress='0%', status='Stopped!'), anchor=E, bd=1, relief=SUNKEN, bg=bg_color)
         self.progress_label.pack(fill=X, side=BOTTOM)
 
         # menu
-        self.menu = tk.Menu(self)
+        self.menu = tk.Menu(self, bg=bg_color)
         self.config(menu=self.menu)
         # print(self.cget('bg'))
 
         # file menu
-        self.file_menu = tk.Menu(self.menu, tearoff=False)
+        self.file_menu = tk.Menu(self.menu, tearoff=False, bg=bg_color)
         self.menu.add_cascade(label='File', menu=self.file_menu)
         self.file_menu.add_command(label='Open File', command=self.open_text_file)
         self.file_menu.add_command(label='Save', command=self.save_text)
@@ -290,7 +294,7 @@ class App(tk.Tk):
         self.file_menu.add_command(label='Exit', command=self.quit)
 
         # edit menu
-        self.edit_menu = tk.Menu(self.menu, tearoff=False)
+        self.edit_menu = tk.Menu(self.menu, tearoff=False, bg=bg_color)
         self.menu.add_cascade(label='Edit', menu=self.edit_menu)
         self.edit_menu.add_command(label='Undo', command=self.current_textbox.edit_undo)
         self.edit_menu.add_command(label='Redo', command=self.current_textbox.edit_redo)
@@ -300,7 +304,7 @@ class App(tk.Tk):
         self.edit_menu.add_command(label='Paste', command=self.current_textbox.paste)
 
         # about menu
-        self.help_menu = tk.Menu(self.menu, tearoff=False)
+        self.help_menu = tk.Menu(self.menu, tearoff=False, bg=bg_color)
         self.menu.add_cascade(label='Help', menu=self.help_menu)
         self.help_menu.add_command(label='About', command=self.about)
 
