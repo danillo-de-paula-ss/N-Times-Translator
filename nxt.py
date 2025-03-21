@@ -11,7 +11,7 @@ from PIL import Image, ImageTk
 from utilities import nxt, check_internet_connection, function_async
 from itertools import cycle
 import pyperclip
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, freeze_support
 from multiprocessing.connection import Connection
 from queue import Empty
 import logging
@@ -544,5 +544,7 @@ it in any language.'''
         top.mainloop()
 
 if __name__ == '__main__':
+    if os.name == 'nt':
+        freeze_support() # On Windows calling this function is necessary.
     app = App()
     app.mainloop()
