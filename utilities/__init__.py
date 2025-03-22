@@ -2,7 +2,7 @@ from typing import Iterator, Callable
 from queue import Queue
 import subprocess
 from requests.exceptions import ConnectionError
-from multiprocessing import Process, Pipe
+import multiprocessing
 from multiprocessing.connection import Connection
 import time
 import os
@@ -28,8 +28,8 @@ def nxt(text: str, source: str, target: str, times: int, lang_codes: Iterator[st
 
 def function_async(func: Callable):
     # start process
-    parent_conn, child_conn = Pipe()
-    process = Process(target=func, args=(child_conn,), daemon=True)
+    parent_conn, child_conn = multiprocessing.Pipe()
+    process = multiprocessing.Process(target=func, args=(child_conn,), daemon=True)
     process.start()
     return process, parent_conn
 

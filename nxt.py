@@ -11,7 +11,7 @@ from PIL import Image, ImageTk
 from utilities import nxt, check_internet_connection, function_async
 from itertools import cycle
 import pyperclip
-from multiprocessing import Process, Queue, freeze_support
+import multiprocessing
 from multiprocessing.connection import Connection
 from queue import Empty
 import logging
@@ -116,7 +116,7 @@ class App(tk.Tk):
         self.filename = ""
         self.current_textbox = CTextbox()
         self.process = None
-        self.bucket = Queue()
+        self.bucket = multiprocessing.Queue()
         self.data = {}
         self.progress_text = 'source: {source}, target: {target}, times: {times}, progress: {progress}, status: {status}' + ' ' * 4
 
@@ -338,7 +338,7 @@ class App(tk.Tk):
             self.logger.warning('Source text box is empty!')
             messagebox.showwarning('Warning', 'Source text box is empty!')
 
-    def wait_process(self, count: int, timeout: int, process: Process, parent_conn: Connection, callback: Callable):
+    def wait_process(self, count: int, timeout: int, process: multiprocessing.Process, parent_conn: Connection, callback: Callable):
         count += 1
         if count >= timeout:
             if process.is_alive():
@@ -371,14 +371,14 @@ class App(tk.Tk):
     def translate(self):
         # start process
         self.logger.info(f'Translating the text {self.data['times']} times...')
-        process = Process(target=nxt, args=(*self.data.values(),), kwargs={'bucket': self.bucket}, daemon=True)
+        process = multiprocessing.Process(target=nxt, args=(*self.data.values(),), kwargs={'bucket': self.bucket}, daemon=True)
         process.start()
         # set progress bar
         self.progress.set(0)
         self.progress_label.config(text=self.progress_text.format(source=self.data['source'], target=self.data['target'], times=self.data['times'], progress='0.00%', status='Running...'))
         self.after(500, self.update_status, process)
     
-    def update_status(self, process: Process):
+    def update_status(self, process: multiprocessing.Process):
         update_again = True
         try:
             response: dict[str, str | None] = self.bucket.get_nowait()
@@ -545,6 +545,6 @@ it in any language.'''
 
 if __name__ == '__main__':
     if os.name == 'nt':
-        freeze_support() # On Windows calling this function is necessary.
+        multiprocessing.freeze_support() # On Windows calling this function is necessary.
     app = App()
     app.mainloop()
