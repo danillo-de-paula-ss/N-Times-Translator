@@ -7,10 +7,9 @@ from multiprocessing.connection import Connection
 import time
 import os
 
-os.environ["translators_default_region"] = "EN"
-import translators
-
 def nxt(text: str, source: str, target: str, times: int, lang_codes: Iterator[str], *, bucket: Queue) -> str:
+    os.environ["translators_default_region"] = "EN"
+    import translators
     try:
         for i in range(times):
             if i < times - 1:
