@@ -109,7 +109,7 @@ class App(tk.Tk):
         if os.name == 'nt':
             self.iconbitmap('nxt.ico')
         else:
-            self.icon = tk.PhotoImage(file='nxt.png')
+            self.icon = ImageTk.PhotoImage(Image.open('nxt.ico'))
             self.iconphoto(True, self.icon)
         self.geometry('1400x800')
         bg_color = self.cget('bg')
@@ -507,7 +507,7 @@ class App(tk.Tk):
         frame.pack(pady=20)
 
         # icon
-        icon_img = ImageTk.PhotoImage(Image.open('nxt.png').resize((60, 60), reducing_gap=1.0))
+        icon_img = ImageTk.PhotoImage(Image.open('nxt.ico').resize((60, 60), reducing_gap=1.0))
         icon = tk.Label(frame, image=icon_img)
         icon.grid(row=0, column=0)
 
