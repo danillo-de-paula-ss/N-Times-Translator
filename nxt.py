@@ -149,7 +149,7 @@ class App(tk.Tk):
         # source language combo
         self.sl_combo = ttk.Combobox(self.sl_frame, values=self.sl_names, font=('Helvetica', 12), state='readonly')
         self.sl_combo.set(self.sl_names[0])
-        self.sl_combo.grid(row=1, column=0, pady=(0, 2), padx=(1, 0), ipady=7, sticky=EW)
+        self.sl_combo.grid(row=1, column=0, pady=(0, 2), ipady=7, sticky=EW)
 
         # paste text button
         self.paste_img = ImageTk.PhotoImage(Image.open('buttons/paste.png').resize((30, 30), reducing_gap=1.0))
@@ -230,7 +230,7 @@ class App(tk.Tk):
         # target language combo
         self.tl_combo = ttk.Combobox(self.tl_frame, values=self.tl_names, font=('Helvetica', 12), state='readonly')
         self.tl_combo.set(self.tl_names[58])
-        self.tl_combo.grid(row=1, column=0, pady=(0, 2), padx=(1, 0), ipady=7, sticky=EW)
+        self.tl_combo.grid(row=1, column=0, pady=(0, 2), ipady=7, sticky=EW)
 
         # copy text button
         self.copy_img = ImageTk.PhotoImage(Image.open('buttons/copy.png').resize((30, 30), reducing_gap=1.0))

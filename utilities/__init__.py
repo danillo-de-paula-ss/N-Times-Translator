@@ -36,9 +36,8 @@ def function_async(func: Callable):
 def check_internet_connection(pipe_conn: Connection):
     try:
         start_time = time.time()
-        time.sleep(10)
         param = '-n' if os.name == 'nt' else '-c'
-        subprocess.check_output(["ping", param, "1", "8.8.8.8"], stderr=subprocess.DEVNULL)
+        subprocess.check_output(["ping", param, "1", "8.8.8.8"], stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
         elapsed_time = time.time() - start_time
         pipe_conn.send((True, elapsed_time))
     except subprocess.CalledProcessError:
