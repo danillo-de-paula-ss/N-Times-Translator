@@ -16,7 +16,7 @@ from multiprocessing.connection import Connection
 from queue import Empty
 import logging
 from typing import Callable
-import getpass
+from pathlib import Path
 from contextlib import suppress
 import sys
 from datetime import datetime
@@ -119,6 +119,7 @@ class App(tk.Tk):
         self.bucket = multiprocessing.Queue()
         self.data = {}
         self.progress_text = 'source: {source}, target: {target}, times: {times}, progress: {progress}, status: {status}' + ' ' * 4
+        self.initial_dir = os.path.join(Path.home(), 'Documents')
 
         # main frame
         self.main_frame = tk.Frame(self)
@@ -430,7 +431,7 @@ class App(tk.Tk):
     
     def open_text_file(self):
         self.logger.info('Opening a text file and getting its content...')
-        filename = filedialog.askopenfilename(defaultextension='.txt', filetypes=(('Text Files', '.txt',),), initialdir=f'/home/{getpass.getuser()}/Documentos', title='Open text file')
+        filename = filedialog.askopenfilename(defaultextension='.txt', filetypes=(('Text Files', '.txt',),), initialdir=self.initial_dir, title='Open text file')
         if filename:
             with open(filename, 'rt', encoding='utf-8') as file:
                 text = file.read()
@@ -474,7 +475,7 @@ class App(tk.Tk):
 
     def save_text_as(self):
         self.logger.info('Opening the directory and saving the content to a text file...')
-        filename = filedialog.asksaveasfilename(defaultextension='.txt', filetypes=(('Text Files', '.txt',),), initialdir=f'/home/{getpass.getuser()}/Documentos', initialfile='output.txt', title='Save text file')
+        filename = filedialog.asksaveasfilename(defaultextension='.txt', filetypes=(('Text Files', '.txt',),), initialdir=self.initial_dir, initialfile='output.txt', title='Save text file')
         if filename:
             with open(filename, 'wt', encoding='utf-8') as file:
                 file.write(self.tl_text.get('1.0', END))
