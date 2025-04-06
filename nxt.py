@@ -446,10 +446,14 @@ class App(tk.Tk):
         sl_lang = self.sl_combo.get()
         if sl_lang != self.source_langs['auto']:
             tl_lang = self.tl_combo.get()
+            self.sl_combo.config(state=NORMAL)
+            self.tl_combo.config(state=NORMAL)
             self.sl_combo.delete(0, END)
             self.tl_combo.delete(0, END)
             self.sl_combo.insert(0, tl_lang)
             self.tl_combo.insert(0, sl_lang)
+            self.sl_combo.config(state='readonly')
+            self.tl_combo.config(state='readonly')
             self.logger.info('Languages swapped successfully!')
         else:
             self.logger.warning('You can\'t swap languages.')
